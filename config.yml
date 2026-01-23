@@ -1,0 +1,30 @@
+api_id:
+api_hash: ""
+source: -1000000000
+target: -1000000000
+
+batch_size: 100
+message_delay_s: 0.9
+
+pause_every_messages: 1000
+pause_duration_s: 300
+session_name: "session"
+log_file: "log.log"
+offset_file: "offset.json"
+drop_author: true
+
+banner:
+  enabled: true
+  text: "BACKUP"
+  font_file: "Roboto-Bold"
+  band_color: "#9b0000"
+  band_alpha: 90
+  band_height_ratio: 0.22
+  band_min_px: 90
+  font_size_ratio: 0.74
+  letter_spacing_ratio: 0.14
+  letter_spacing_min_px: 4
+  text_color: "#ffffff"
+  outline_color: "#000000"
+  outline_ratio: 0.06
+  outline_min_px: 1
