@@ -4,10 +4,10 @@ source: -1000000000
 target: -1000000000
 
 batch_size: 100
-message_delay_s: 0.9
+message_delay_s: 1.0
 
 pause_every_messages: 1000
-pause_duration_s: 300
+pause_duration_s: 700
 session_name: "session"
 log_file: "log.log"
 offset_file: "offset.json"
