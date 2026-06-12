@@ -10,6 +10,30 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue" alt="GPLv3 License"></a>
 </p>
 
+## Project Structure
+
+```text
+tclone/
+├── fonts/
+│   ├── DejaVuSans-Bold.ttf
+│   ├── DejaVuSans.ttf
+│   └── Roboto-Bold.ttf
+├── src/
+│   ├── analyzer.py
+│   ├── cli.py
+│   ├── clonner.py
+│   ├── config.py
+│   ├── forward.py
+│   ├── runtime.py
+│   └── session.py
+├── .env.example
+├── config.yml
+├── pyproject.toml
+├── requirements.txt
+├── LICENSE
+└── README.md
+```
+
 ## Overview
 
 `tclone` uses a Telegram user session to process messages between chats, channels, and forum topics. It provides three operating modes:
@@ -247,42 +271,6 @@ Windows:        C:\Users\<user>\tclone\
 ```
 
 Analyzer reports are saved to the system Pictures directory unless `reports_dir` is configured.
-
-## Project Structure
-
-```text
-tclone/
-├── fonts/
-│   ├── DejaVuSans-Bold.ttf
-│   ├── DejaVuSans.ttf
-│   └── Roboto-Bold.ttf
-├── src/
-│   ├── analyzer.py
-│   ├── cli.py
-│   ├── clonner.py
-│   ├── config.py
-│   ├── forward.py
-│   ├── runtime.py
-│   └── session.py
-├── .env.example
-├── config.yml
-├── pyproject.toml
-├── requirements.txt
-├── LICENSE
-└── README.md
-```
-
-This is a Markdown code block, not an image. GitHub renders it with a monospace font, which gives it the repository-tree appearance. You can generate a similar tree locally with:
-
-```bash
-tree -a -I '.git|.venv|__pycache__|*.egg-info'
-```
-
-Then place the output inside a fenced code block using `text` as the language. For a literal image, save a PNG or SVG under a directory such as `assets/` and reference it with:
-
-```markdown
-![Project structure](assets/project-structure.png)
-```
 
 ## Termux
 
