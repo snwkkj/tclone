@@ -61,6 +61,79 @@ def save_offsets(offset_file, offsets):
         json.dump(offsets, f, indent=2)
 
 
+def _normalize_ignore_list(ignore_list):
+    """Normalize ignore_chats list by parsing links and extracting topic IDs.
+    
+    Handles formats:
+    - https://t.me/c/123456789/1234 → topic ID: 1234
+    - topic:chat_id:topic_id → topic ID: topic_id
+    - Numeric IDs → kept as is
+    """
+    if not ignore_list:
+        return []
+    
+    normalized = []
+    for item in ignore_list:
+        if isinstance(item, str):
+            # Parse t.me link
+            if "t.me" in item:
+                # Extract topic ID from link (last number)
+                parts = item.rstrip('/').split('/')
+                if parts[-1].isdigit():
+                    topic_id = int(parts[-1])
+                    normalized.append(topic_id)
+                continue
+            
+            # Parse "topic:chat:id" format
+            if item.startswith("topic:"):
+                try:
+                    _, _, topic_id_str = item.split(":")
+                    topic_id = int(topic_id_str)
+                    normalized.append(topic_id)
+                except Exception:
+                    pass
+                continue
+        
+        # Keep numeric values as is (chat IDs or topic IDs)
+        try:
+            normalized.append(int(item) if isinstance(item, str) else item)
+        except Exception:
+            pass
+    
+    return normalized
+
+
+def _should_ignore_message(msg, source_chat, source_topic, ignore_list):
+    """Check if a message should be ignored based on chat/topic ID.
+    
+    Args:
+        msg: The message object
+        source_chat: Source chat ID
+        source_topic: Source topic ID (if any)
+        ignore_list: List of IDs to ignore (chat IDs or topic specifications)
+        
+    Returns:
+        True if message should be ignored, False otherwise
+    """
+    if not ignore_list:
+        return False
+    
+    # Check if entire chat should be ignored
+    if source_chat in ignore_list:
+        return True
+    
+    # Check if specific topic should be ignored
+    if source_topic:
+        topic_spec = f"topic:{source_chat}:{source_topic}"
+        if topic_spec in ignore_list:
+            return True
+        # Also check if topic ID alone is in list
+        if source_topic in ignore_list:
+            return True
+    
+    return False
+
+
 async def countdown(seconds, quiet=False):
     for remaining in range(seconds, 0, -1):
         if not quiet:
@@ -127,6 +200,10 @@ async def run_forwarder(cfg, args):
     pause_duration_s = int(cfg.get("pause_duration_s", 300))
 
     drop_author = bool(cfg.get("drop_author", False))
+    
+    ignore_topics = cfg.get("ignore_topics", [])
+    if not isinstance(ignore_topics, list):
+        ignore_topics = []
 
     session_name = str(cfg.get("session_name", "session"))
     log_file = str(cfg.get("log_file", "log.log"))
@@ -244,6 +321,15 @@ async def run_forwarder(cfg, args):
 
         for msg in messages:
             try:
+                if _should_ignore_message(msg, source_chat, source_topic, ignore_topics):
+                    last_id = msg.id
+                    offsets[offset_key] = last_id
+                    save_offsets(offset_file, offsets)
+                    if not args.quiet:
+                        sys.stdout.write(f"\rSkipping ignored message {msg.id}...")
+                        sys.stdout.flush()
+                    continue
+                
                 if isinstance(msg, types.MessageService):
                     last_id = msg.id
                     offsets[offset_key] = last_id

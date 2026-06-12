@@ -12,6 +12,7 @@ session_name: "session"
 log_file: "log.log"
 offset_file: "offset.json"
 drop_author: true
+ignore_topics: []  # [https://t.me/c/123456789/1,https://t.me/c/123456789/2]
 
 banner:
   enabled: true

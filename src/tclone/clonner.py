@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 from telethon import errors
 from telethon.tl import functions, types
 
-from .forward import load_offsets, make_offset_key, parse_telegram_target, save_offsets
+from .forward import load_offsets, make_offset_key, parse_telegram_target, save_offsets, _should_ignore_message, _normalize_ignore_list
 from .session import create_and_start_client
 
 
@@ -415,7 +415,7 @@ async def _set_about_and_invite_link(client, target_entity, source_title, source
         log(f"Failed to update group bio/about: {e}")
 
 
-async def _mirror_topics(client, source_entity, target_entity, topic_delay_s, log):
+async def _mirror_topics(client, source_entity, target_entity, topic_delay_s, log, ignore_list=None):
     try:
         await _call_with_floodwait(
             lambda: client(functions.channels.ToggleForumRequest(channel=target_entity, enabled=True)),
@@ -426,6 +426,7 @@ async def _mirror_topics(client, source_entity, target_entity, topic_delay_s, lo
         log(f"Failed to enable forum on backup group: {e}")
         return {}
 
+    ignore_list = _normalize_ignore_list(ignore_list or [])
     topic_map = {}
 
     existing_by_title = {}
@@ -484,6 +485,10 @@ async def _mirror_topics(client, source_entity, target_entity, topic_delay_s, lo
             return topic_map
 
         for t in topics:
+            # Skip ignored topics
+            if t.id in ignore_list:
+                log(f"Skipping ignored topic: {t.title} (id={t.id})")
+                continue
             existing_id = existing_by_title.get(getattr(t, "title", None))
             if existing_id is not None:
                 topic_map[t.id] = existing_id
@@ -606,6 +611,10 @@ async def _mirror_topic_messages(
     pause_duration_s = int(cfg.get("pause_duration_s", 300))
 
     drop_author = bool(cfg.get("drop_author", False))
+    
+    ignore_topics = cfg.get("ignore_topics", [])
+    if not isinstance(ignore_topics, list):
+        ignore_topics = []
 
     offset_file = str(cfg.get("offset_file", "offset.json"))
     if os.path.dirname(offset_file):
@@ -643,6 +652,15 @@ async def _mirror_topic_messages(
 
             for msg in messages:
                 try:
+                    if _should_ignore_message(msg, source_chat_key, source_topic_id, ignore_topics):
+                        last_id = msg.id
+                        offsets[offset_key] = last_id
+                        save_offsets(offset_file, offsets)
+                        if not getattr(args, "quiet", False):
+                            sys.stdout.write(f"\rSkipping ignored message {msg.id}...")
+                            sys.stdout.flush()
+                        continue
+                    
                     if isinstance(msg, types.MessageService):
                         last_id = msg.id
                         offsets[offset_key] = last_id
@@ -870,7 +888,10 @@ async def run_clonner(cfg, args):
     is_forum = bool(getattr(source_entity, "forum", False))
     if is_forum:
         log("Source is a forum. Mirroring topics...")
-        topic_map = await _mirror_topics(client, source_entity, target_entity, topic_delay_s, log)
+        ignore_topics_cfg = cfg.get("ignore_topics", [])
+        if not isinstance(ignore_topics_cfg, list):
+            ignore_topics_cfg = []
+        topic_map = await _mirror_topics(client, source_entity, target_entity, topic_delay_s, log, ignore_list=ignore_topics_cfg)
         if topic_map:
             log("Mirroring topic messages...")
             await _mirror_topic_messages(

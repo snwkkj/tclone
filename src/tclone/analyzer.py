@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 from telethon import errors
 from telethon.tl import types
 
-from .forward import parse_telegram_target
+from .forward import parse_telegram_target, _should_ignore_message
 from .session import create_and_start_client
 
 
@@ -299,6 +299,12 @@ async def run_analyzer(cfg, args):
 
     title = getattr(target_entity, "title", None) or str(target)
     safe_name = _sanitize_filename(title)
+    
+    ignore_topics = cfg.get("ignore_topics", [])
+    if not isinstance(ignore_topics, list):
+        ignore_topics = []
+    
+    target_chat_id = getattr(target_entity, "id", None) or target_chat
 
     out_dir = str(cfg.get("reports_dir") or _default_reports_dir())
     os.makedirs(out_dir, exist_ok=True)
@@ -315,6 +321,9 @@ async def run_analyzer(cfg, args):
 
     try:
         async for msg in client.iter_messages(target_entity, reverse=True):
+            if _should_ignore_message(msg, target_chat_id, None, ignore_topics):
+                continue
+            
             total_messages += 1
             kind, b = _get_message_media_info(msg)
             if kind is not None:
