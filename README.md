@@ -1,16 +1,262 @@
 # tclone
 
-![License](https://img.shields.io/badge/License-GPLv3-blue)
-![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=flat&logo=python&logoColor=white)
+<p align="center">
+  A small command-line tool for forwarding, mirroring, and analyzing Telegram chats with Telethon.
+</p>
 
-Minimal Telegram message "clone" tool built on [Telethon](https://github.com/LonamiWebs/Telethon).
+<p align="center">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white" alt="Python 3.8+"></a>
+  <a href="https://github.com/LonamiWebs/Telethon"><img src="https://img.shields.io/badge/Telethon-1.34.0-2AABEE?logo=telegram&logoColor=white" alt="Telethon 1.34.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue" alt="GPLv3 License"></a>
+</p>
+
+## Overview
+
+`tclone` uses a Telegram user session to process messages between chats, channels, and forum topics. It provides three operating modes:
+
+- **Forward** messages from one Telegram entity to another.
+- **Mirror** a forum into a reusable backup group, including its photo and topics.
+- **Analyze** the estimated media storage used by a group or channel.
+
+The tool supports rate limiting, FloodWait handling, persistent offsets, topic links, optional author attribution removal, and local debug logs.
+
+> [!IMPORTANT]
+> Use `tclone` only with chats and content you are authorized to access. Follow the Telegram Terms of Service and the rules of each community.
+
+## Quick Start
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/snwkkj/tclone.git
+cd tclone
+```
+
+### 2. Create a virtual environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+On Windows:
+
+```powershell
+.venv\Scripts\activate
+```
+
+### 3. Install the project
+
+```bash
+pip install -e .
+```
+
+### 4. Configure Telegram credentials
+
+Edit `config.yml`:
+
+```yaml
+api_id: 12345678
+api_hash: "your_api_hash"
+source: -1001234567890
+target: -1009876543210
+```
+
+Telegram API credentials can be created at [my.telegram.org](https://my.telegram.org/).
+
+For better credential isolation, leave `api_id` and `api_hash` empty in `config.yml` and create a `.env` file:
+
+```env
+API_ID=12345678
+API_HASH=your_api_hash
+```
+
+### 5. Run tclone
+
+```bash
+tclone -m -1001234567890
+```
+
+On the first run, Telethon asks for your phone number, login code, and two-factor authentication password when applicable. The authenticated session is then reused.
+
+## Usage
+
+```text
+Basic usage:
+  tclone -m -1001234567890
+
+Options:
+  -h, --help      Show the help message
+  -q, --quiet     Hide terminal output and progress indicators
+  -d, --debug     Write detailed logs to log.log
+  -c, --config    Open the active config.yml
+  -f, --forward   Forward messages (default mode)
+  -m, --mirror    Mirror a Telegram forum into a backup group
+  -a, --analyzer  Generate a storage report for a group or channel
+  -s, --source    Override the configured source
+  -t, --target    Override the configured target
+```
+
+### Forward messages
+
+Forward mode is the default:
+
+```bash
+tclone
+```
+
+Override the source and target from the command line:
+
+```bash
+tclone -f -s -1001234567890 -t -1009876543210
+```
+
+Topic and message links are also accepted:
+
+```bash
+tclone -f \
+  -s https://t.me/c/1234567890/42 \
+  -t https://t.me/c/9876543210/10
+```
+
+### Mirror a forum
+
+Create or reuse a backup group and mirror the source forum topics:
+
+```bash
+tclone -m -1001234567890
+```
+
+Mirror mode can:
+
+- Create a `[backup]` group.
+- Copy the source group photo.
+- Add a configurable `BACKUP` banner to the copied photo.
+- Recreate forum topics in the backup group.
+- Resume topic messages using `offset.json`.
+- Skip deleted topic markers returned by Telegram.
+
+The current mirror implementation is designed for Telegram forums. A non-forum source can create the backup group, but its regular message history is not mirrored.
+
+### Analyze storage
+
+Analyze a group or channel:
+
+```bash
+tclone -a -1001234567890
+```
+
+The analyzer creates:
+
+- A text summary with message and estimated media totals.
+- A PNG chart grouped by media type.
+
+Telegram exposes metadata rather than a complete storage accounting API, so report sizes should be treated as estimates.
+
+### Other examples
+
+```bash
+# Run quietly
+tclone -q -m -1001234567890
+
+# Enable detailed logs
+tclone -d -m -1001234567890
+
+# Open the active configuration file
+tclone -c
+```
+
+## Configuration
+
+The default `config.yml` contains:
+
+```yaml
+api_id:
+api_hash: ""
+source: -1000000000
+target: -1000000000
+
+batch_size: 100
+message_delay_s: 1.0
+
+pause_every_messages: 1000
+pause_duration_s: 700
+
+drop_author: true
+ignore_topics: []
+
+banner:
+  enabled: true
+  text: "BACKUP"
+  font_file: "Roboto-Bold"
+  band_color: "#9b0000"
+  band_alpha: 90
+```
+
+### Main settings
+
+| Setting | Description |
+| --- | --- |
+| `api_id` | Telegram application ID. Can be supplied through `API_ID`. |
+| `api_hash` | Telegram application hash. Can be supplied through `API_HASH`. |
+| `source` | Source chat, channel, username, or `t.me` link. |
+| `target` | Destination chat, channel, username, or `t.me` link. |
+| `batch_size` | Number of messages requested per batch. |
+| `message_delay_s` | Delay between processed messages. |
+| `pause_every_messages` | Number of messages processed before a longer pause. |
+| `pause_duration_s` | Duration of the longer pause in seconds. |
+| `drop_author` | Request forwarding without original author attribution. |
+| `ignore_topics` | Topic IDs or links that should be skipped. |
+| `reports_dir` | Optional custom directory for analyzer reports. |
+
+### Supported entity formats
+
+```text
+-1001234567890
+channel_username
+https://t.me/channel_username
+https://t.me/c/1234567890/42
+```
+
+### Ignoring topics
+
+```yaml
+ignore_topics:
+  - 42
+  - https://t.me/c/1234567890/114
+```
+
+## Runtime Files
+
+When a `config.yml` exists in the current directory or in an editable project checkout, runtime files are stored beside it:
+
+| File | Purpose |
+| --- | --- |
+| `config.yml` | Runtime configuration. |
+| `.env` | Optional API credential overrides. |
+| `session.session` | Authenticated Telethon session. |
+| `offset.json` | Resume state for forwarded and mirrored messages. |
+| `log.log` | Detailed output created with `--debug`. |
+
+Without a project configuration, the default application directory is:
+
+```text
+Linux / Termux: ~/.tclone/
+macOS:          ~/Library/Application Support/tclone/
+Windows:        C:\Users\<user>\tclone\
+```
+
+Analyzer reports are saved to the system Pictures directory unless `reports_dir` is configured.
 
 ## Project Structure
 
 ```text
-├── .env.example
-├── config.yml
-├── src
+tclone/
+├── fonts/
+│   ├── DejaVuSans-Bold.ttf
+│   ├── DejaVuSans.ttf
+│   └── Roboto-Bold.ttf
+├── src/
 │   ├── analyzer.py
 │   ├── cli.py
 │   ├── clonner.py
@@ -18,260 +264,74 @@ Minimal Telegram message "clone" tool built on [Telethon](https://github.com/Lon
 │   ├── forward.py
 │   ├── runtime.py
 │   └── session.py
-├── fonts
-│   ├── DejaVuSans-Bold.ttf
-│   ├── DejaVuSans.ttf
-│   └── Roboto-Bold.ttf
+├── .env.example
+├── config.yml
+├── pyproject.toml
 ├── requirements.txt
+├── LICENSE
 └── README.md
 ```
 
-It reads a `config.yml` (or optional `.env`), logs in using a Telethon session, and provides three main modes:
-- **Mirror**: Clone messages from source to a backup group
-- **Forward**: Forward messages with optional attribution control
-- **Analyze**: Generate storage usage reports for target chats/channels
-
-All modes include rate limiting, automatic resume via offset files, and FloodWait handling.
-
-## Features
-
-- **Mirror mode**: Clone messages to backup group
-- **Forward mode**: Forward messages with attribution control
-- **Analyze mode**: Generate storage usage reports (text + PNG graph)
-- Supports IDs, usernames, and `t.me` links (including topic/message links)
-- Resume support via `offset.json`
-- FloodWait handling with countdowns
-- Rate limiting (delay + periodic long pause)
-- Optional `.env` support for API credentials
-- `-c` / `--config` helper to open `config.yml` in your default system editor
-
-## Requirements
-
-- Python 3.8+
-- Telegram API credentials (`api_id` and `api_hash`)
-
-## Installation
-
-### Option 1: From source (recommended)
-
-Clone the repository:
+This is a Markdown code block, not an image. GitHub renders it with a monospace font, which gives it the repository-tree appearance. You can generate a similar tree locally with:
 
 ```bash
-git clone https://github.com/snowzf4/tclone.git
-cd tclone
+tree -a -I '.git|.venv|__pycache__|*.egg-info'
 ```
 
-Create and activate a virtual environment (optional, recommended):
+Then place the output inside a fenced code block using `text` as the language. For a literal image, save a PNG or SVG under a directory such as `assets/` and reference it with:
 
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+```markdown
+![Project structure](assets/project-structure.png)
 ```
 
-Install the project:
+## Termux
 
-```bash
-pip install -e .
-```
-
-### Termux (Android) notes (Pillow)
-
-If you use Termux, Pillow may need native libraries and a compiler toolchain.
-
-1) Update packages:
+Pillow may require native libraries on Termux:
 
 ```bash
 pkg update -y
-pkg upgrade -y
-```
-
-2) Install Pillow dependencies (required):
-
-```bash
 pkg install -y \
+  python \
+  clang \
+  make \
+  zlib \
+  freetype \
   libjpeg-turbo \
   libpng \
-  freetype \
   libwebp \
   libtiff \
-  littlecms \
-  zlib \
-  clang \
-  make
-```
+  littlecms
 
-3) Install Python tooling (recommended):
-
-```bash
-pkg install -y python
 python -m pip install --upgrade pip setuptools wheel
-```
-
-4) Install the project:
-
-```bash
-pip install -r requirements.txt
-```
-
-Or (editable install):
-
-```bash
 pip install -e .
 ```
 
-5) Quick check that Pillow is OK:
+Verify Pillow after installation:
 
 ```bash
 python -c "from PIL import Image; print('Pillow OK')"
 ```
 
-## Configuration
+## Development
 
-### Option 1: config.yml (default)
-
-Create a `config.yml` in the folder where you will run the tool:
-
-```yml
-api_id: 0
-api_hash: ""
-source: -1000000000000
-target: -1000000000000
-
-batch_size: 100
-message_delay_s: 1.0
-
-pause_every_messages: 1000
-pause_duration_s: 300
-
-session_name: "session"
-log_file: "log.log"
-offset_file: "offset.json"
-drop_author: true
-```
-
-### Option 2: .env file (optional)
-
-Create a `.env` file (or copy `.env.example`) to override API credentials:
-
-```env
-API_ID=
-API_HASH=
-```
-
-The `.env` file only needs to contain `API_ID` and `API_HASH`. Other settings remain in `config.yml`.
-
-### Notes
-
-- `source` / `target` examples:
-  - Numeric ID: `-1001234567890`
-  - Username: `somechannel`
-  - Link: `https://t.me/c/1234567890/114`
-
-## Usage
-
-### Basic modes
+Install the project in editable mode:
 
 ```bash
-# Forward mode (default): forward messages
-tclone
-
-# Mirror mode: create/reuse a backup group and mirror topics
-tclone -m
-
-# Analyze mode: generate storage report
-tclone -a
+pip install -e .
 ```
 
-### Command options
+Compile-check the source files:
 
-```text
--h, --help      Show this help message and exit
--q, --quiet     Run in silent mode (no terminal output, no spinner)
--d, --debug     Write detailed execution logs to log.log
--c, --config    Open config.yml in the default editor and exit
--f, --forward   Forward mode (default)
--m, --mirror    Mirror a group: create a [backup] group, copy photo, and create topics
--a, --analyzer  Analyze a target chat and generate a storage report (txt + png)
--s, --source    Override source chat/channel (ignores config.yml source)
--t, --target    Override target chat/channel (ignores config.yml target)
-```
-
-### Examples
-
-Quiet mode:
 ```bash
-tclone --quiet
+python -m compileall -q src
 ```
 
-Write logs to `log.log`:
+Build a wheel:
+
 ```bash
-tclone --debug
+python -m pip wheel . --no-deps -w dist
 ```
-
-Open settings:
-```bash
-tclone --config
-```
-
-Forward mode:
-```bash
-tclone --forward
-```
-
-Analyze storage:
-```bash
-tclone -a
-
-# Shorthand target (no --target needed)
-tclone -a -1001234567890
-```
-
-Mirror with shorthand source:
-```bash
-tclone -m -1001234567890
-```
-
-## Files
-
-- `config.yml`: runtime configuration
-- `.env` / `.env.example`: optional API credentials override
-- `session.session`: Telethon session (created after first login)
-- `offset.json`: last processed message id for resume
-- `log.log`: optional logs (enabled with `--debug`)
-- Analyzer reports: `<chat_or_channel_name>.txt` and `<chat_or_channel_name>.png` (analyzer mode)
-
-By default, config/session/offset/log/fonts are stored in a per-user application directory:
-
-```text
-Linux / Termux: ~/.tclone/
-Windows: C:\Users\<you>\tclone\
-```
-
-Analyzer reports are saved to your Pictures folder by default:
-
-```text
-Linux: ~/Pictures (or XDG Pictures dir)
-Termux: ~/storage/pictures
-Windows: C:\Users\<you>\Pictures\
-```
-
-You can override the analyzer output folder via `reports_dir` in `config.yml`.
-
-If a local `config.yml` exists in the current directory, files are stored locally instead.
-
-Use `--config` to open the active `config.yml`.
-
-## Dependencies
-
-- `python-dotenv==1.2.1` - Environment variable support
-- `telethon==1.34.0` - Telegram client library
-- `pyyaml==6.0.3` - YAML configuration parsing
-- `pillow==10.3.0` - Image processing for analyzer charts
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
-
-## Disclaimer
-
-Use responsibly and comply with Telegram ToS and the rules of the chats you interact with.
+This project is distributed under the [GNU General Public License v3.0](LICENSE).
