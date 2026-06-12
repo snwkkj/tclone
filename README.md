@@ -43,7 +43,7 @@ All modes include rate limiting, automatic resume via offset files, and FloodWai
 - FloodWait handling with countdowns
 - Rate limiting (delay + periodic long pause)
 - Optional `.env` support for API credentials
-- `--settings` helper to open `config.yml` in your default system editor
+- `-c` / `--config` helper to open `config.yml` in your default system editor
 
 ## Requirements
 
@@ -187,8 +187,7 @@ tclone -a
 ```text
 -h, --help      Show this help message and exit
 -q, --quiet     Run in silent mode (no terminal output, no spinner)
--l, --logs      Write detailed execution logs to log.log
--d, --delete    Delete session file and offsets.json, then exit
+-d, --debug     Write detailed execution logs to log.log
 -c, --config    Open config.yml in the default editor and exit
 -f, --forward   Forward mode (default)
 -m, --mirror    Mirror a group: create a [backup] group, copy photo, and create topics
@@ -206,17 +205,12 @@ tclone --quiet
 
 Write logs to `log.log`:
 ```bash
-tclone --logs
+tclone --debug
 ```
 
 Open settings:
 ```bash
-tclone --settings
-```
-
-Clean session + offset:
-```bash
-tclone --clean
+tclone --config
 ```
 
 Forward mode:
@@ -243,7 +237,7 @@ tclone -m -1001234567890
 - `.env` / `.env.example`: optional API credentials override
 - `session.session`: Telethon session (created after first login)
 - `offset.json`: last processed message id for resume
-- `log.log`: optional logs (enabled with `--logs`)
+- `log.log`: optional logs (enabled with `--debug`)
 - Analyzer reports: `<chat_or_channel_name>.txt` and `<chat_or_channel_name>.png` (analyzer mode)
 
 By default, config/session/offset/log/fonts are stored in a per-user application directory:
@@ -265,7 +259,7 @@ You can override the analyzer output folder via `reports_dir` in `config.yml`.
 
 If a local `config.yml` exists in the current directory, files are stored locally instead.
 
-Use `--settings` to open the active `config.yml`.
+Use `--config` to open the active `config.yml`.
 
 ## Dependencies
 

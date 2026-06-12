@@ -220,7 +220,7 @@ async def run_forwarder(cfg, args):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         line = f"[{timestamp}] {msg}"
 
-        if args.logs:
+        if args.debug:
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
 

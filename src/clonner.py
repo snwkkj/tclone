@@ -754,7 +754,7 @@ async def run_clonner(cfg, args):
     topic_delay_s = float(cfg.get("topic_delay_s", cfg.get("message_delay_s", 1.0)))
 
     log_fp = None
-    if getattr(args, "logs", False):
+    if getattr(args, "debug", False):
         try:
             log_path = str(cfg.get("log_file", "log.log"))
             if os.path.dirname(log_path):

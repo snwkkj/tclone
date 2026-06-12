@@ -91,17 +91,3 @@ def open_settings_file(path):
         subprocess.call(["nano", path])
         return
     raise RuntimeError("No default opener found (termux-open/xdg-open) and nano is not available")
-
-
-def clean_runtime_files(base_dir):
-    candidates = [
-        os.path.join(base_dir, "session.session"),
-        os.path.join(base_dir, "session.session-journal"),
-        os.path.join(base_dir, "offset.json"),
-    ]
-    removed = []
-    for path in candidates:
-        if os.path.exists(path):
-            os.remove(path)
-            removed.append(path)
-    return removed

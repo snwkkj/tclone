@@ -6,18 +6,31 @@ from analyzer import run_analyzer
 from clonner import run_clonner
 from config import load_config_raw
 from forward import run_forwarder
-from runtime import clean_runtime_files, open_settings_file, resolve_runtime
+from runtime import open_settings_file, resolve_runtime
 
 
-class _HelpFormatter(argparse.RawTextHelpFormatter):
+class _HelpFormatter(argparse.HelpFormatter):
+    def _format_usage(self, usage, actions, groups, prefix):
+        return (
+            "Basic usage:\n"
+            "  tclone -m -1003055898473\n\n"
+        )
+
     def _format_action_invocation(self, action):
         if not action.option_strings:
             return super()._format_action_invocation(action)
 
-        if "--source" in action.option_strings or "--target" in action.option_strings:
-            return ", ".join(action.option_strings)
+        return ", ".join(action.option_strings)
 
-        return super()._format_action_invocation(action)
+    def _format_action(self, action):
+        original_nargs = action.nargs
+        if action.nargs in ("?", "*"):
+            action.nargs = None
+
+        try:
+            return super()._format_action(action)
+        finally:
+            action.nargs = original_nargs
 
 
 def build_parser():
@@ -43,24 +56,15 @@ def build_parser():
     )
 
     parser.add_argument(
-        "-l",
-        "--logs",
+        "-d",
+        "--debug",
         action="store_true",
         help="Write detailed execution logs to log.log",
     )
 
     parser.add_argument(
-        "-d",
-        "--delete",
-        "--clean",
-        action="store_true",
-        help="Delete session file and offset.json, then exit",
-    )
-
-    parser.add_argument(
         "-c",
         "--config",
-        "--settings",
         action="store_true",
         help="Open config.yml in the default editor and exit",
     )
@@ -121,15 +125,6 @@ def main():
 
     if args.config:
         open_settings_file(config_path)
-        return 0
-
-    if args.delete:
-        removed = clean_runtime_files(base_dir)
-        if removed:
-            for path in removed:
-                print(f"Removed: {path}")
-        else:
-            print("Nothing to clean.")
         return 0
 
     cfg = load_config_raw(config_path)
