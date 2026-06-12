@@ -1,14 +1,12 @@
 import argparse
 import asyncio
 import os
-import shutil
-import subprocess
-import sys
 
-from tclone.analyzer import run_analyzer
-from tclone.clonner import run_clonner
-from tclone.config import DEFAULT_CONFIG_FILE, load_config_raw
-from tclone.forward import run_forwarder
+from analyzer import run_analyzer
+from clonner import run_clonner
+from config import load_config_raw
+from forward import run_forwarder
+from runtime import clean_runtime_files, open_settings_file, resolve_runtime
 
 
 class _HelpFormatter(argparse.RawTextHelpFormatter):
@@ -24,6 +22,7 @@ class _HelpFormatter(argparse.RawTextHelpFormatter):
 
 def build_parser():
     parser = argparse.ArgumentParser(
+        prog="tclone",
         description="Telegram message forwarder using Telethon",
         formatter_class=_HelpFormatter,
         add_help=False,
@@ -114,158 +113,23 @@ def build_parser():
     return parser
 
 
-def get_app_dir():
-    if sys.platform.startswith("win"):
-        return os.path.join(os.path.expanduser("~"), "tclone")
-
-    if sys.platform == "darwin":
-        return os.path.join(
-            os.path.expanduser("~"),
-            "Library",
-            "Application Support",
-            "tclone",
-        )
-
-    return os.path.join(os.path.expanduser("~"), ".tclone")
-
-
-def ensure_dir(path):
-    os.makedirs(path, exist_ok=True)
-
-    if sys.platform.startswith("win"):
-        try:
-            subprocess.call(["attrib", "+h", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
-
-
-def ensure_default_config(path):
-    if os.path.exists(path):
-        return
-
-    try:
-        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        template_cfg = os.path.join(repo_root, DEFAULT_CONFIG_FILE)
-        if os.path.exists(template_cfg):
-            shutil.copy2(template_cfg, path)
-            return
-    except Exception:
-        pass
-
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(
-            "api_id: 0\n"
-            "api_hash: \"\"\n"
-            "source: -1000000000000\n"
-            "target: -1000000000000\n\n"
-            "batch_size: 100\n"
-            "message_delay_s: 1.0\n\n"
-            "pause_every_messages: 1000\n"
-            "pause_duration_s: 300\n\n"
-            "session_name: \"session\"\n"
-            "log_file: \"log.log\"\n"
-            "offset_file: \"offset.json\"\n"
-            "drop_author: true\n"
-            "banner:\n"
-            "  enabled: true\n"
-            "  text: \"BACKUP\"\n"
-            "  font_file: \"BebasNeue-Regular.ttf\"\n"
-            "  band_color: [155, 0, 0]\n"
-            "  band_alpha: 255\n"
-            "  band_height_ratio: 0.22\n"
-            "  band_min_px: 90\n"
-            "  font_size_ratio: 0.74\n"
-            "  letter_spacing_ratio: 0.14\n"
-            "  letter_spacing_min_px: 4\n"
-            "  text_color: [255, 255, 255]\n"
-            "  outline_color: [0, 0, 0]\n"
-            "  outline_ratio: 0.06\n"
-            "  outline_min_px: 2\n"
-        )
-
-
-def resolve_config_path(app_dir):
-    local_cfg = os.path.join(os.getcwd(), DEFAULT_CONFIG_FILE)
-    app_cfg = os.path.join(app_dir, DEFAULT_CONFIG_FILE)
-
-    if os.path.exists(app_cfg):
-        return app_cfg
-
-    ensure_dir(app_dir)
-    ensure_default_config(app_cfg)
-    return app_cfg
-
-
-def ensure_fonts(base_dir):
-    fonts_dst = os.path.join(base_dir, "fonts")
-    try:
-        os.makedirs(fonts_dst, exist_ok=True)
-    except Exception:
-        return
-
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    src_dirs = [os.path.join(repo_root, "fonts"), os.path.join(repo_root, "fontes")]
-
-    exts = (".ttf", ".otf", ".ttc")
-    for src_dir in src_dirs:
-        if not os.path.isdir(src_dir):
-            continue
-        try:
-            for name in os.listdir(src_dir):
-                if not name.lower().endswith(exts):
-                    continue
-                src_fp = os.path.join(src_dir, name)
-                dst_fp = os.path.join(fonts_dst, name)
-                if os.path.exists(dst_fp):
-                    continue
-                try:
-                    shutil.copy2(src_fp, dst_fp)
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-
-def open_settings_file(path):
-    if sys.platform.startswith("win"):
-        os.startfile(path)  # noqa: S606
-        return
-
-    if sys.platform == "darwin":
-        subprocess.Popen(["open", path])
-        return
-
-    if shutil.which("termux-open"):
-        subprocess.Popen(["termux-open", path])
-        return
-
-    if shutil.which("xdg-open"):
-        subprocess.Popen(["xdg-open", path])
-        return
-
-    if shutil.which("nano"):
-        subprocess.call(["nano", path])
-        return
-
-    raise RuntimeError("No default opener found (termux-open/xdg-open) and nano is not available")
-
-
 def main():
     parser = build_parser()
     args = parser.parse_args()
 
-    local_cfg = os.path.join(os.getcwd(), DEFAULT_CONFIG_FILE)
-    if os.path.exists(local_cfg):
-        base_dir = os.getcwd()
-        config_path = local_cfg
-    else:
-        base_dir = get_app_dir()
-        config_path = resolve_config_path(base_dir)
-
-        ensure_fonts(base_dir)
+    base_dir, config_path = resolve_runtime()
 
     if args.config:
         open_settings_file(config_path)
+        return 0
+
+    if args.delete:
+        removed = clean_runtime_files(base_dir)
+        if removed:
+            for path in removed:
+                print(f"Removed: {path}")
+        else:
+            print("Nothing to clean.")
         return 0
 
     cfg = load_config_raw(config_path)
@@ -273,8 +137,8 @@ def main():
     try:
         from dotenv import load_dotenv  # type: ignore
 
-        local_env = os.path.join(os.getcwd(), ".env")
-        local_env_example = os.path.join(os.getcwd(), ".env.example")
+        local_env = os.path.join(base_dir, ".env")
+        local_env_example = os.path.join(base_dir, ".env.example")
         if os.path.exists(local_env):
             load_dotenv(local_env, override=False)
         elif os.path.exists(local_env_example):
@@ -330,3 +194,7 @@ def main():
     except KeyboardInterrupt:
         print("\nStopped by user.")
         return 130
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

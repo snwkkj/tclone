@@ -9,8 +9,9 @@ from PIL import Image, ImageDraw, ImageFont
 from telethon import errors
 from telethon.tl import types
 
-from .forward import parse_telegram_target, _should_ignore_message
-from .session import create_and_start_client
+from forward import parse_telegram_target, _should_ignore_message
+from runtime import FONTS_DIR
+from session import create_and_start_client
 
 
 def _human_bytes(n):
@@ -149,12 +150,10 @@ def _draw_report_png(output_path, title, totals, counts, total_bytes, base_dir=N
     img = Image.new("RGB", (w, h), bg)
     draw = ImageDraw.Draw(img)
 
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-
     fonts_dirs = []
     if base_dir:
         fonts_dirs.append(os.path.join(str(base_dir), "fonts"))
-    fonts_dirs.append(os.path.join(repo_root, "fonts"))
+    fonts_dirs.append(FONTS_DIR)
 
     def _first_existing(*names):
         for d in fonts_dirs:

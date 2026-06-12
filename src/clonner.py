@@ -11,8 +11,9 @@ from PIL import Image, ImageDraw, ImageFont
 from telethon import errors
 from telethon.tl import functions, types
 
-from .forward import load_offsets, make_offset_key, parse_telegram_target, save_offsets, _should_ignore_message, _normalize_ignore_list
-from .session import create_and_start_client
+from forward import load_offsets, make_offset_key, parse_telegram_target, save_offsets, _should_ignore_message, _normalize_ignore_list
+from runtime import FONTS_DIR
+from session import create_and_start_client
 
 
 def _clear_status_line():
@@ -170,12 +171,10 @@ def _apply_backup_banner(image_path, banner_cfg=None, base_dir=None):
     font_size_ratio = float(banner_cfg.get("font_size_ratio", 0.74))
     font_size = max(int(band_h * font_size_ratio), 24)
 
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-
     fonts_dirs = []
     if base_dir:
         fonts_dirs.append(os.path.join(str(base_dir), "fonts"))
-    fonts_dirs.extend([os.path.join(repo_root, "fonts"), os.path.join(repo_root, "fontes")])
+    fonts_dirs.append(FONTS_DIR)
 
     font_paths = []
 
@@ -454,7 +453,7 @@ async def _mirror_topics(client, source_entity, target_entity, topic_delay_s, lo
                     existing_by_title[title] = t.id
 
             last_t = topics_t[-1]
-            offset_date_t = last_t.date
+            offset_date_t = getattr(last_t, "date", None)
             offset_id_t = last_t.id
             offset_topic_t = last_t.id
     except Exception:
@@ -485,22 +484,28 @@ async def _mirror_topics(client, source_entity, target_entity, topic_delay_s, lo
             return topic_map
 
         for t in topics:
-            # Skip ignored topics
-            if t.id in ignore_list:
-                log(f"Skipping ignored topic: {t.title} (id={t.id})")
+            topic_id = getattr(t, "id", None)
+            title = getattr(t, "title", None)
+            if not title:
+                log(f"Skipping deleted topic marker (id={topic_id})")
                 continue
-            existing_id = existing_by_title.get(getattr(t, "title", None))
+
+            # Skip ignored topics
+            if topic_id in ignore_list:
+                log(f"Skipping ignored topic: {title} (id={topic_id})")
+                continue
+            existing_id = existing_by_title.get(title)
             if existing_id is not None:
-                topic_map[t.id] = existing_id
+                topic_map[topic_id] = existing_id
                 continue
             try:
                 updates = await _call_with_floodwait(
                     lambda: client(
                         functions.channels.CreateForumTopicRequest(
                             channel=target_entity,
-                            title=t.title,
-                            icon_color=t.icon_color,
-                            icon_emoji_id=t.icon_emoji_id,
+                            title=title,
+                            icon_color=getattr(t, "icon_color", None),
+                            icon_emoji_id=getattr(t, "icon_emoji_id", None),
                         )
                     ),
                     log,
@@ -515,10 +520,10 @@ async def _mirror_topics(client, source_entity, target_entity, topic_delay_s, lo
                         break
 
                 if created_topic_id is None:
-                    created_topic_id = t.id
+                    created_topic_id = topic_id
 
-                topic_map[t.id] = created_topic_id
-                log(f"Created topic: {t.title}")
+                topic_map[topic_id] = created_topic_id
+                log(f"Created topic: {title}")
             except errors.FloodWaitError as e:
                 log(f"FloodWait while creating topic: sleeping {e.seconds}s")
                 await asyncio.sleep(e.seconds + 5)
@@ -530,8 +535,8 @@ async def _mirror_topics(client, source_entity, target_entity, topic_delay_s, lo
                             lambda: client(
                                 functions.channels.CreateForumTopicRequest(
                                     channel=target_entity,
-                                    title=t.title,
-                                    icon_color=t.icon_color,
+                                    title=title,
+                                    icon_color=getattr(t, "icon_color", None),
                                     icon_emoji_id=None,
                                 )
                             ),
@@ -546,10 +551,10 @@ async def _mirror_topics(client, source_entity, target_entity, topic_delay_s, lo
                                 created_topic_id = m.id
                                 break
                         if created_topic_id is None:
-                            created_topic_id = t.id
+                            created_topic_id = topic_id
 
-                        topic_map[t.id] = created_topic_id
-                        log(f"Created topic: {t.title}")
+                        topic_map[topic_id] = created_topic_id
+                        log(f"Created topic: {title}")
                     except Exception as e2:
                         msg2 = str(e2)
                         if "premium" in msg2.lower():
@@ -558,7 +563,7 @@ async def _mirror_topics(client, source_entity, target_entity, topic_delay_s, lo
                                     lambda: client(
                                         functions.channels.CreateForumTopicRequest(
                                             channel=target_entity,
-                                            title=t.title,
+                                            title=title,
                                             icon_color=None,
                                             icon_emoji_id=None,
                                         )
@@ -574,21 +579,21 @@ async def _mirror_topics(client, source_entity, target_entity, topic_delay_s, lo
                                         created_topic_id = m.id
                                         break
                                 if created_topic_id is None:
-                                    created_topic_id = t.id
+                                    created_topic_id = topic_id
 
-                                topic_map[t.id] = created_topic_id
-                                log(f"Created topic: {t.title}")
+                                topic_map[topic_id] = created_topic_id
+                                log(f"Created topic: {title}")
                             except Exception as e3:
-                                log(f"Failed to create topic '{t.title}' (no emoji/color): {e3}")
+                                log(f"Failed to create topic '{title}' (no emoji/color): {e3}")
                         else:
-                            log(f"Failed to create topic '{t.title}' (no emoji): {e2}")
+                            log(f"Failed to create topic '{title}' (no emoji): {e2}")
                 else:
-                    log(f"Failed to create topic '{t.title}': {e}")
+                    log(f"Failed to create topic '{title}': {e}")
 
             await asyncio.sleep(topic_delay_s)
 
         last = topics[-1]
-        offset_date = last.date
+        offset_date = getattr(last, "date", None)
         offset_id = last.id
         offset_topic = last.id
 

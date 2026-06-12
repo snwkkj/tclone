@@ -10,17 +10,20 @@ Minimal Telegram message "clone" tool built on [Telethon](https://github.com/Lon
 ```text
 ├── .env.example
 ├── config.yml
-├── main.py
+├── src
+│   ├── analyzer.py
+│   ├── cli.py
+│   ├── clonner.py
+│   ├── config.py
+│   ├── forward.py
+│   ├── runtime.py
+│   └── session.py
+├── fonts
+│   ├── DejaVuSans-Bold.ttf
+│   ├── DejaVuSans.ttf
+│   └── Roboto-Bold.ttf
 ├── requirements.txt
-├── README.md
-└── src
-    └── tclone
-        ├── __init__.py
-        ├── analyzer.py
-        ├── clonner.py
-        ├── config.py
-        ├── forward.py
-        └── session.py
+└── README.md
 ```
 
 It reads a `config.yml` (or optional `.env`), logs in using a Telethon session, and provides three main modes:
@@ -269,7 +272,7 @@ Use `--settings` to open the active `config.yml`.
 - `python-dotenv==1.2.1` - Environment variable support
 - `telethon==1.34.0` - Telegram client library
 - `pyyaml==6.0.3` - YAML configuration parsing
-- `pillow==10.0.0` - Image processing for analyzer charts
+- `pillow==10.3.0` - Image processing for analyzer charts
 
 ## License
 

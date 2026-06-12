@@ -10,7 +10,7 @@ from datetime import datetime
 from telethon import errors
 from telethon.tl import functions, types
 
-from .session import create_and_start_client
+from session import create_and_start_client
 
 
 def parse_telegram_target(value):
@@ -226,25 +226,6 @@ async def run_forwarder(cfg, args):
 
         if not args.quiet:
             print(line)
-
-    if args.delete:
-        removed = False
-
-        session_file = f"{session_name}.session"
-        if os.path.exists(session_file):
-            os.remove(session_file)
-            print(f"Removed session file: {session_file}")
-            removed = True
-
-        if os.path.exists(offset_file):
-            os.remove(offset_file)
-            print(f"Removed offset file: {offset_file}")
-            removed = True
-
-        if not removed:
-            print("Nothing to clean.")
-
-        return 0
 
     client = await create_and_start_client(session_name, api_id, api_hash)
 

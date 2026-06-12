@@ -25,11 +25,8 @@ Repository = "https://github.com/snowzf4/tclone"
 Issues = "https://github.com/snowzf4/tclone/issues"
 
 [project.scripts]
-tclone = "tclone.cli:main"
+tclone = "cli:main"
 
-[tool.setuptools.package-dir]
-"" = "src"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["tclone*"]
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["analyzer", "cli", "clonner", "config", "forward", "runtime", "session"]
