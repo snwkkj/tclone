@@ -162,7 +162,9 @@ def main():
     if args.target is not None:
         cfg["target"] = args.target
 
-    if cfg.get("api_id") is None or cfg.get("api_hash") is None:
+    api_id = cfg.get("api_id")
+    api_hash = cfg.get("api_hash")
+    if not str(api_id or "").strip() or not str(api_hash or "").strip():
         raise ValueError("Missing api_id/api_hash. Set them in config.yml or provide API_ID/API_HASH in .env")
 
     if args.analyzer:
